@@ -1,0 +1,42 @@
+name: 🔍 Debug AWS Credentials
+
+on: workflow_dispatch
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 1️⃣ Check GitHub Secrets
+      run: |
+        echo "=== DIAGNÓSTICO INICIADO ==="
+        echo ""
+        echo "🔍 Verificando secrets en GitHub..."
+        echo ""
+        
+        # Verificar si los secrets existen
+        if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+          echo "✅ AWS_ACCESS_KEY_ID: EXISTE"
+          echo "   Longitud: ${#{{ secrets.AWS_ACCESS_KEY_ID }}} caracteres"
+        else
+          echo "❌ AWS_ACCESS_KEY_ID: NO EXISTE o está vacío"
+        fi
+        
+        echo ""
+        
+        if [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+          echo "✅ AWS_SECRET_ACCESS_KEY: EXISTE"
+          echo "   Longitud: ${#{{ secrets.AWS_SECRET_ACCESS_KEY }}} caracteres"
+        else
+          echo "❌ AWS_SECRET_ACCESS_KEY: NO EXISTE o está vacío"
+        fi
+        
+    - name: 2️⃣ Simple Test
+      run: |
+        echo ""
+        echo "=== PRUEBA SIMPLE ==="
+        echo "Si ves ✅ arriba, los secrets existen"
+        echo "Si ves ❌, necesitas configurarlos"
+        echo ""
+        echo "📍 Ubicación para configurar secrets:"
+        echo "GitHub → Settings → Secrets and variables → Actions"
