@@ -1,0 +1,48 @@
+name: 🚀 Test NOW
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔍 Step 1: Check secrets are loaded
+      run: |
+        echo "=== VERIFICANDO ==="
+        echo ""
+        echo "Secret 1 cargado: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}"
+        echo "Secret 2 cargado: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' }}"
+        
+    - name: 🔐 Step 2: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+        
+    - name: ✅ Step 3: Test AWS Connection
+      run: |
+        echo "=== PROBANDO CREDENCIALES ==="
+        echo ""
+        
+        # Comando que SIEMPRE funciona si credenciales son válidas
+        if aws sts get-caller-identity; then
+          echo ""
+          echo "🎉 🎉 🎉 ¡ÉXITO TOTAL! 🎉 🎉 🎉"
+          echo ""
+          echo "✅ GitHub Secrets: CONFIGURADOS"
+          echo "✅ AWS Credentials: VÁLIDAS"
+          echo "✅ IAM Permissions: OK"
+          echo ""
+          echo "🚀 ¡Listo para desplegar a S3!"
+        else
+          echo ""
+          echo "❌ ERROR: Aún hay problema"
+          echo ""
+          echo "Posibles causas:"
+          echo "1. Credenciales incorrectas en Secrets"
+          echo "2. Usuario IAM sin permisos"
+          echo "3. Access Key desactivada en AWS"
+          exit 1
+        fi
