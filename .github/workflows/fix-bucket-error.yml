@@ -1,0 +1,195 @@
+name: 🛠️ Fix Bucket Error
+
+on: workflow_dispatch
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: mi-sitio-devops-2024  # Este es el bucket que NECESITAS
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+      
+    - name: 🔐 Configure AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: 🔍 Verify AWS Connection
+      run: |
+        echo "=== Verificando conexión AWS ==="
+        aws sts get-caller-identity
+        echo "✅ Conexión AWS OK"
+        
+    - name: 🏗️ CREATE BUCKET (si no existe)
+      run: |
+        echo "=== VERIFICANDO BUCKET: ${{ env.S3_BUCKET }} ==="
+        
+        # Verificar si el bucket existe
+        if aws s3 ls "s3://${{ env.S3_BUCKET }}" 2>/dev/null; then
+          echo "✅ El bucket ${{ env.S3_BUCKET }} YA EXISTE"
+        else
+          echo "❌ El bucket ${{ env.S3_BUCKET }} NO EXISTE"
+          echo "Creando bucket..."
+          
+          # Crear bucket
+          aws s3 mb "s3://${{ env.S3_BUCKET }}" --region ${{ env.AWS_REGION }}
+          
+          # Configurar hosting estático
+          aws s3 website "s3://${{ env.S3_BUCKET }}" \
+            --index-document index.html \
+            --error-document error.html
+          
+          echo "✅ Bucket creado y configurado para hosting"
+        fi
+        
+    - name: 🔓 Configure Public Access
+      run: |
+        echo "=== CONFIGURANDO ACCESO PÚBLICO ==="
+        
+        # Crear política JSON
+        cat > policy.json << EOF
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "PublicReadGetObject",
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "s3:GetObject",
+                    "Resource": "arn:aws:s3:::${{ env.S3_BUCKET }}/*"
+                }
+            ]
+        }
+        EOF
+        
+        # Aplicar política
+        aws s3api put-bucket-policy \
+          --bucket "${{ env.S3_BUCKET }}" \
+          --policy file://policy.json
+        
+        echo "✅ Acceso público configurado"
+        
+    - name: 📁 Create Website Files
+      run: |
+        echo "=== CREANDO ARCHIVOS DEL SITIO ==="
+        
+        # Crear carpeta src si no existe
+        mkdir -p src
+        
+        # Crear index.html
+        cat > src/index.html << 'HTML'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>✅ ¡Error Solucionado!</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    padding: 50px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    min-height: 100vh;
+                }
+                .container {
+                    background: white;
+                    color: #333;
+                    padding: 40px;
+                    border-radius: 20px;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                }
+                h1 { color: #667eea; }
+                .success {
+                    color: green;
+                    font-size: 24px;
+                    margin: 20px 0;
+                }
+                .error-fixed {
+                    background: #d4edda;
+                    color: #155724;
+                    padding: 15px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                }
+                .bucket-info {
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    font-family: monospace;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚀 ¡ERROR SOLUCIONADO!</h1>
+                <div class="success">✅ Pipeline CI/CD Funcionando</div>
+                
+                <div class="error-fixed">
+                    <strong>Error anterior:</strong> "Unknown options" - Bucket no existía<br>
+                    <strong>Solución:</strong> Bucket creado automáticamente
+                </div>
+                
+                <div class="bucket-info">
+                    <strong>Bucket S3:</strong> mi-sitio-devops-2024<br>
+                    <strong>Región:</strong> us-east-1<br>
+                    <strong>Estado:</strong> ✅ CREADO Y CONFIGURADO
+                </div>
+                
+                <h2>🎯 Pasos completados:</h2>
+                <ol>
+                    <li>✅ Verificar conexión AWS</li>
+                    <li>✅ Crear bucket si no existe</li>
+                    <li>✅ Configurar hosting estático</li>
+                    <li>✅ Configurar permisos públicos</li>
+                    <li>✅ Crear archivos del sitio</li>
+                    <li>✅ Subir a S3</li>
+                </ol>
+                
+                <p>Fecha del deploy: <span id="date"></span></p>
+            </div>
+            
+            <script>
+                document.getElementById('date').textContent = new Date().toLocaleString();
+            </script>
+        </body>
+        </html>
+        HTML
+        
+        echo "✅ Archivos creados en /src"
+        
+    - name: 📤 UPLOAD to S3 (COMMAND FIXED)
+      run: |
+        echo "=== SUBIENDO ARCHIVOS A S3 ==="
+        echo "Bucket: ${{ env.S3_BUCKET }}"
+        
+        # Comando CORREGIDO - Simple y directo
+        aws s3 cp ./src/index.html s3://${{ env.S3_BUCKET }}/index.html --acl public-read
+        
+        echo "✅ Archivo index.html subido exitosamente"
+        
+    - name: 🌐 Show Website URL
+      run: |
+        echo ""
+        echo "========================================"
+        echo "🎉 ¡ERROR SOLUCIONADO EXITOSAMENTE!"
+        echo "========================================"
+        echo ""
+        echo "🌍 Tu sitio ahora está disponible en:"
+        echo "http://${{ env.S3_BUCKET }}.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+        echo ""
+        echo "🔗 URL completa:"
+        echo "http://mi-sitio-devops-2024.s3-website-us-east-1.amazonaws.com"
+        echo ""
+        echo "📊 Ver en AWS Console:"
+        echo "https://s3.console.aws.amazon.com/s3/buckets/${{ env.S3_BUCKET }}"
+        echo "========================================"
