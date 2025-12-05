@@ -1,0 +1,123 @@
+# Nombre del workflow que verás en GitHub
+name: 🚀 Deploy to AWS S3
+
+# CUÁNDO se ejecutará este workflow:
+on:
+  # 1. Cuando hagas push a la rama main
+  push:
+    branches: [ "main" ]
+  
+  # 2. Cuando crees un Pull Request hacia main
+  pull_request:
+    branches: [ "main" ]
+  
+  # 3. Opcional: Permitir ejecución manual desde GitHub
+  workflow_dispatch:
+
+# Variables de entorno que usaremos
+env:
+  AWS_REGION: 'us-east-1'  # Cambia si usas otra región
+  S3_BUCKET: 'mi-sitio-devops-2024'  # NOMBRE DE TU BUCKET S3
+
+# LOS TRABAJOS (JOBS) que se ejecutarán
+jobs:
+  # PRIMER TRABAJO: Verificar y probar
+  test:
+    # Nombre que verás en GitHub
+    name: ✅ Test and Validate
+    # Sistema operativo donde correrá
+    runs-on: ubuntu-latest
+    
+    # Pasos a ejecutar
+    steps:
+      # 1. Descargar el código del repositorio
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+      
+      # 2. Verificar que tenemos index.html
+      - name: 🔍 Check HTML file exists
+        run: |
+          if [ ! -f "src/index.html" ]; then
+            echo "❌ ERROR: No se encontró src/index.html"
+            exit 1
+          fi
+          echo "✅ index.html encontrado"
+          ls -la src/
+      
+      # 3. Validar HTML básico (opcional)
+      - name: 📝 Validate HTML
+        run: |
+          echo "Validando estructura HTML..."
+          # Instalar herramienta de validación
+          sudo npm install -g html-validator-cli
+          # Validar archivo
+          html-validator --file=src/index.html || echo "⚠️ Advertencias en HTML"
+      
+      # 4. Probar que el sitio funciona localmente
+      - name: 🧪 Test with simple HTTP server
+        run: |
+          # Crear un servidor web temporal para probar
+          python3 -m http.server 8080 --directory src &
+          SERVER_PID=$!
+          sleep 2
+          
+          # Hacer una petición a nuestro propio servidor
+          curl -f http://localhost:8080/ || exit 1
+          
+          # Detener el servidor
+          kill $SERVER_PID
+          
+          echo "✅ Sitio funciona correctamente localmente"
+
+  # SEGUNDO TRABAJO: Construir y desplegar
+  deploy:
+    # Depende de que el job 'test' haya pasado
+    needs: test
+    
+    # Solo ejecutar si:
+    # 1. Estamos en la rama main
+    # 2. No es un Pull Request (solo push directo)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    
+    name: 🚀 Deploy to AWS S3
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Descargar código
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+      
+      # 2. Configurar AWS credentials (¡IMPORTANTE!)
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          # Estas variables las configuramos DESPUÉS en GitHub
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      # 3. Sincronizar archivos con S3
+      - name: 📤 Sync files to S3
+        run: |
+          echo "Subiendo archivos al bucket: ${{ env.S3_BUCKET }}"
+          
+          # Comando para subir archivos
+          aws s3 sync ./src s3://${{ env.S3_BUCKET }} \
+            --delete \  # Borra archivos en S3 que ya no existen localmente
+            --acl public-read \  # Permisos públicos
+            --cache-control "max-age=31536000,public"  # Cache por 1 año
+          
+          echo "✅ Archivos subidos exitosamente"
+      
+      # 4. Mostrar URL del sitio
+      - name: 🌐 Show website URL
+        run: |
+          echo "========================================"
+          echo "🎉 ¡Sitio desplegado exitosamente!"
+          echo ""
+          echo "🌍 URL de tu sitio:"
+          echo "http://${{ env.S3_BUCKET }}.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+          echo ""
+          echo "📊 Para ver en AWS Console:"
+          echo "https://s3.console.aws.amazon.com/s3/buckets/${{ env.S3_BUCKET }}?region=${{ env.AWS_REGION }}&tab=objects"
+          echo "========================================"
